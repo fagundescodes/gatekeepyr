@@ -1,4 +1,3 @@
-import time
 from fastapi import FastAPI
 import asyncio
 import random

@@ -24,7 +24,7 @@ async def health():
 async def proxy(path: str):
     url = f"http://127.0.0.1:8001/{path}"
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=5.0) as client:
             response = await client.get(url)
             return response.json()
     except httpx.RequestError as e:
