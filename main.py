@@ -17,6 +17,12 @@ URLS = [
     "http://127.0.0.1:8003",
 ]
 
+backend_metrics = {
+    "http://127.0.0.1:8001": 0,
+    "http://127.0.0.1:8002": 0,
+    "http://127.0.0.1:8003": 0,
+}
+
 backend_urls = cycle(URLS)
 
 
@@ -33,6 +39,7 @@ async def health():
 @app.get("/proxy/{path:path}")
 async def proxy(path: str):
     backend = next(backend_urls)
+    backend_metrics[backend] += 1
     url = f"{backend}/{path}"
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
@@ -41,3 +48,11 @@ async def proxy(path: str):
     except httpx.RequestError as e:
         logger.error(f"Backend service unavailable: {e}")
         raise HTTPException(503, "Service is not responding")
+
+
+@app.get("/metrics")
+async def metrics():
+    return {
+        "backends": backend_metrics,
+        "total_requests": sum(backend_metrics.values()),
+    }
