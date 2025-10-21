@@ -1,15 +1,29 @@
+import asyncio
 from fastapi import FastAPI
 from fastapi.exceptions import HTTPException
 import httpx
 import logging
 from itertools import cycle
+from contextlib import asynccontextmanager
 
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="gatekeepyr")
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    asyncio.create_task(health_check_loop())
+    yield
+
+
+async def health_check_loop():
+    while True:
+        await check_health()
+        await asyncio.sleep(5)
+
+
+app = FastAPI(lifespan=lifespan)
 
 URLS = [
     "http://127.0.0.1:8001",
@@ -24,6 +38,7 @@ backend_metrics = {
 }
 
 backend_urls = cycle(URLS)
+working_backends = URLS.copy()
 
 
 @app.get("/")
@@ -56,3 +71,19 @@ async def metrics():
         "backends": backend_metrics,
         "total_requests": sum(backend_metrics.values()),
     }
+
+
+async def check_health():
+    global working_backends, backend_urls
+    new_working_backends = []
+
+    for backend in URLS:
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.get(f"{backend}/health")
+                if response.status_code == 200:
+                    new_working_backends.append(backend)
+        except:
+            logger.warning(f"Backend {backend} is down")
+    working_backends = new_working_backends
+    backend_urls = cycle(working_backends)
