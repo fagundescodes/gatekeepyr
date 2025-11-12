@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 import time
 from contextlib import asynccontextmanager
 from enum import Enum
@@ -12,6 +13,14 @@ from fastapi.exceptions import HTTPException
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+BACKEND_URLS = os.getenv(
+    "BACKEND_URLS", "http://127.0.0.1:8001,http://127.0.0.1:8002,http://127.0.0.1:8003"
+).split(",")
+FAILURE_THRESHOLD = int(os.getenv("FAILURE_THRESHOLD", "3"))
+TIMEOUT_SECONDS = int(os.getenv("TIMEOUT_SECONDS", "30"))
+REQUEST_TIMEOUT = float(os.getenv("REQUEST_TIMEOUT", "5.0"))
+HEALTH_CHECK_INTERVAL = int(os.getenv("HEALTH_CHECK_INTERVAL", "5"))
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -22,7 +31,7 @@ async def lifespan(app: FastAPI):
 async def health_check_loop():
     while True:
         await check_health()
-        await asyncio.sleep(5)
+        await asyncio.sleep(HEALTH_CHECK_INTERVAL)
 
 
 app = FastAPI(lifespan=lifespan)
@@ -34,42 +43,21 @@ class State(Enum):
     HALF_OPEN = "half_open"
 
 
+URLS = BACKEND_URLS
+
 circuit_breakers = {
-    "http://127.0.0.1:8001": {
+    url: {
         "state": State.CLOSED,
         "failures": 0,
         "failure_time": None,
-    },
-    "http://127.0.0.1:8002": {
-        "state": State.CLOSED,
-        "failures": 0,
-        "failure_time": None,
-    },
-    "http://127.0.0.1:8003": {
-        "state": State.CLOSED,
-        "failures": 0,
-        "failure_time": None,
-    },
+    }
+    for url in URLS
 }
 
-
-URLS = [
-    "http://127.0.0.1:8001",
-    "http://127.0.0.1:8002",
-    "http://127.0.0.1:8003",
-]
-
-backend_metrics = {
-    "http://127.0.0.1:8001": 0,
-    "http://127.0.0.1:8002": 0,
-    "http://127.0.0.1:8003": 0,
-}
+backend_metrics = {url: 0 for url in URLS}
 
 backend_urls = cycle(URLS)
 working_backends = URLS.copy()
-
-FAILURE_THRESHOLD = 3
-TIMEOUT_SECONDS = 30
 
 
 @app.get("/")
@@ -101,7 +89,7 @@ async def proxy(path: str):
             raise HTTPException(503, f"Circuit breaker OPEN for {backend}")
 
     try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
+        async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
             response = await client.get(url)
 
             response.raise_for_status()
@@ -138,7 +126,7 @@ async def check_health():
 
     for backend in URLS:
         try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
+            async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
                 response = await client.get(f"{backend}/health")
                 if response.status_code == 200:
                     new_working_backends.append(backend)

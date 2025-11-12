@@ -1,0 +1,56 @@
+services:
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gatekeepyr-gateway
+    ports:
+      - "8000:8000"
+    environment:
+      - BACKEND_URLS=http://backend1:8000,http://backend2:8000,http://backend3:8000
+    depends_on:
+      - backend1
+      - backend2
+      - backend3
+    networks:
+      - gatekeepyr-network
+
+  backend1:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: gatekeepyr-backend-1
+    ports:
+      - "8001:8000"
+    environment:
+      - SERVICE_NAME=backend-1
+    networks:
+      - gatekeepyr-network
+
+  backend2:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: gatekeepyr-backend-2
+    ports:
+      - "8002:8000"
+    environment:
+      - SERVICE_NAME=backend-2
+    networks:
+      - gatekeepyr-network
+
+  backend3:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: gatekeepyr-backend-3
+    ports:
+      - "8003:8000"
+    environment:
+      - SERVICE_NAME=backend-3
+    networks:
+      - gatekeepyr-network
+
+networks:
+  gatekeepyr-network:
+    driver: bridge
