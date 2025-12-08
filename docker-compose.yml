@@ -7,11 +7,12 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - BACKEND_URLS=http://backend1:8000,http://backend2:8000,http://backend3:8000
+      - BACKEND_URLS=http://backend1:8000,http://backend2:8000,http://backend3:8000,http://backend_breaker:8000
     depends_on:
       - backend1
       - backend2
       - backend3
+      - backend_breaker
     networks:
       - gatekeepyr-network
 
@@ -50,6 +51,19 @@ services:
       - SERVICE_NAME=backend-3
     networks:
       - gatekeepyr-network
+
+  backend_breaker:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    environment:
+      - SERVICE_NAME=backend_breaker
+      - FAIL_RATE=0.8
+    volumes:
+      - ./service_breaker.py:/app/service.py
+    networks:
+      - gatekeepyr-network
+
 
 networks:
   gatekeepyr-network:

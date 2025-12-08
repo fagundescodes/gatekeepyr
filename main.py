@@ -34,7 +34,12 @@ async def health_check_loop():
         await asyncio.sleep(HEALTH_CHECK_INTERVAL)
 
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(
+    title="Gatekeepyr",
+    description="API Gateway with load balancing, circuit breaker and health checks",
+    version="0.1.0",
+    lifespan=lifespan,
+)
 
 
 class State(Enum):
@@ -67,11 +72,16 @@ async def root():
 
 @app.get("/health")
 async def health():
+    """Check health status"""
     return {"status": "Ok"}
 
 
 @app.get("/proxy/{path:path}")
 async def proxy(path: str):
+    """
+    Distributes requests across multiple backends using round-robin
+    Circuit breaker protect against failures
+    """
     backend = next(backend_urls)
     backend_metrics[backend] += 1
     url = f"{backend}/{path}"
@@ -114,6 +124,7 @@ async def proxy(path: str):
 
 @app.get("/metrics")
 async def metrics():
+    """Show how many requests each backend has received"""
     return {
         "backends": backend_metrics,
         "total_requests": sum(backend_metrics.values()),
