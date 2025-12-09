@@ -33,6 +33,9 @@ docker compose logs -f gateway
 
 Copy `.env.example` to `.env` if needed. Defaults work fine.
 
+
+Based on [samwho.dev/load-balancing](https://samwho.dev/load-balancing/)
+
 ---
 
 # Gatekeepyr (PT-BR)
@@ -70,3 +73,5 @@ docker compose logs -f gateway
 
 Copia `.env.example` pra `.env` se necessário. O padrão funciona.
 
+
+Based on [samwho.dev/load-balancing](https://samwho.dev/load-balancing/)
